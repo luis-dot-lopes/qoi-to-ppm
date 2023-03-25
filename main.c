@@ -46,8 +46,8 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
     uint8_t byte = image_data[0];
     if (!(byte & ((1 << 7) - 1) << 1)) {
       if (byte & (0b11 << 6) == 0b00) {
-        decoded_pixels[decoded_count] = seen_pixels[byte & ((1 << 6) - 1)];
-        prev_pixel = decoded_pixels[decoded_count]; // May cause problems
+        decoded_pixels[decoded_count++] = seen_pixels[byte & ((1 << 6) - 1)];
+        prev_pixel = decoded_pixels[decoded_count - 1]; // May cause problems
       } else if (byte & (0b11 << 6) == 0b01) {
         int dr = (byte & (0b11 << 4)) - 2;
         int dg = (byte & (0b11 << 2)) - 2;
@@ -56,7 +56,7 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
                                                  .g = prev_pixel.g + dg,
                                                  .b = prev_pixel.b + db,
                                                  .a = prev_pixel.a };
-        decoded_pixels[decoded_count] = cur_pixel;
+        decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel; // May cause problems
         seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
       } else if (byte & (0b11 << 6) == 0b10) {
@@ -76,17 +76,15 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
                                                  .b = prev_pixel.b + db,
                                                  .a = prev_pixel.a };
 
-        decoded_pixels[decoded_count] = cur_pixel;
+        decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel; // May cause problems
         seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
       } else {
-        size_t run = byte & ((1 << 6) - 1);
+        size_t run = (byte & ((1 << 6) - 1)) + 1;
         for(size_t i = 0; i < run; ++i) {
-            decoded_pixels[decoded_count] = prev_pixel;
+            decoded_pixels[decoded_count++] = prev_pixel;
         }
-        decoded_count += run - 1;
       }
-      decoded_count++;
       image_data++;
       image_len--;
     } else {
@@ -117,10 +115,9 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
         byte = image_data[0];
 
         cur_pixel.a = byte;
-        decoded_pixels[decoded_count] = cur_pixel;
+        decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel;
         seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
-        decoded_count++;
       } else {
         pixel cur_pixel;
 
@@ -144,13 +141,13 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
         
         cur_pixel.a = prev_pixel.a;
 
-        decoded_pixels[decoded_count] = cur_pixel;
+        decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel;
         seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
-        decoded_count++;
       }
     }
   }
+  printf("%d\n", decoded_count);
   return decoded_pixels;
 }
 
