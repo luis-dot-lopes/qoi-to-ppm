@@ -30,7 +30,7 @@ decode_qoi(uint8_t* image_data, size_t image_len)
   uint32_t image_width = header.width, image_height = header.height;
   pixel* decoded_pixels = malloc(sizeof(pixel) * image_width * image_height);
   size_t decoded_count = 0;
-  while (image_len > 0) {
+  while (image_len > 8) {
     uint8_t byte = image_data[0];
     if (!(byte & ((1 << 7) - 1) << 1)) {
       if (byte & (0b11 << 6) == 0b00) {
@@ -40,11 +40,13 @@ decode_qoi(uint8_t* image_data, size_t image_len)
         int dr = (byte & (0b11 << 4)) - 2;
         int dg = (byte & (0b11 << 2)) - 2;
         int db = (byte & (0b11 << 0)) - 2;
-        decoded_pixels[decoded_count] = (pixel){ .r = prev_pixel.r + dr,
+        pixel cur_pixel = (pixel){ .r = prev_pixel.r + dr,
                                                  .g = prev_pixel.g + dg,
                                                  .b = prev_pixel.b + db,
                                                  .a = prev_pixel.a };
-        prev_pixel = decoded_pixels[decoded_count]; // May cause problems
+        decoded_pixels[decoded_count] = cur_pixel;
+        prev_pixel = cur_pixel; // May cause problems
+        seen_pixels[cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11] = cur_pixel;
       } else if (byte & (0b11 << 6) == 0b10) {
         int dg = byte & ((1 << 6) - 1);
         image_data++;
@@ -57,11 +59,14 @@ decode_qoi(uint8_t* image_data, size_t image_len)
         int dr = dr_dg + dg;
         int db = db_dg + dg;
 
-        decoded_pixels[decoded_count] = (pixel){ .r = prev_pixel.r + dr,
+        pixel cur_pixel = (pixel){ .r = prev_pixel.r + dr,
                                                  .g = prev_pixel.g + dg,
                                                  .b = prev_pixel.b + db,
                                                  .a = prev_pixel.a };
-        prev_pixel = decoded_pixels[decoded_count]; // May cause problems
+
+        decoded_pixels[decoded_count] = cur_pixel
+        prev_pixel = cur_pixel; // May cause problems
+        seen_pixels[cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11] = cur_pixel;
       } else {
         size_t run = byte & ((1 << 6) - 1);
         for(size_t i = 0; i < run; ++i) {
@@ -73,6 +78,65 @@ decode_qoi(uint8_t* image_data, size_t image_len)
       image_data++;
       image_len--;
     } else {
+      if(byte & 1) {
+
+        pixel cur_pixel;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.r = byte;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.g = byte;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.b = byte;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.a = byte;
+        decoded_pixels[decoded_count] = cur_pixel;
+        prev_pixel = cur_pixel;
+        seen_pixels[cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11] = cur_pixel;
+        decoded_count++;
+      } else {
+        pixel cur_pixel;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.r = byte;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.g = byte;
+
+        image_data++;
+        image_len--;
+        byte = image_data[0];
+
+        cur_pixel.b = byte;
+        
+        cur_pixel.a = prev_pixel.a;
+
+        decoded_pixels[decoded_count] = cur_pixel;
+        prev_pixel = cur_pixel;
+        seen_pixels[cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11] = cur_pixel;
+        decoded_count++;
+      }
     }
   }
 }
