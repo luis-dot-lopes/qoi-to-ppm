@@ -36,9 +36,6 @@ decode_qoi(uint8_t* image_data, size_t image_len)
       if (byte & (0b11 << 6) == 0b00) {
         decoded_pixels[decoded_count] = seen_pixels[byte & ((1 << 6) - 1)];
         prev_pixel = decoded_pixels[decoded_count]; // May cause problems
-        decoded_count++;
-        image_data++;
-        image_len--;
       } else if (byte & (0b11 << 6) == 0b01) {
         int dr = (byte & (0b11 << 4)) - 2;
         int dg = (byte & (0b11 << 2)) - 2;
@@ -48,21 +45,29 @@ decode_qoi(uint8_t* image_data, size_t image_len)
                                                  .b = prev_pixel.b + db,
                                                  .a = prev_pixel.a };
         prev_pixel = decoded_pixels[decoded_count]; // May cause problems
-        decoded_count++;
-        image_data++;
-        image_len--;
       } else if (byte & (0b11 << 6) == 0b10) {
-        int diff_green = byte & ((1 << 6) - 1);
+        int dg = byte & ((1 << 6) - 1);
         image_data++;
         image_len--;
         byte = image_data[0] - 32;
+
         int dr_dg = (byte & ((1 << 4) - 1) << 4) - 8;
         int db_dg = (byte & ((1 << 4) - 1)) - 8;
-        pixel cur_pixel;
-        image_data++;
-        image_len--;
-        decoded_count++;
+
+        int dr = dr_dg + dg;
+        int db = db_dg + dg;
+
+        decoded_pixels[decoded_count] = (pixel){ .r = prev_pixel.r + dr,
+                                                 .g = prev_pixel.g + dg,
+                                                 .b = prev_pixel.b + db,
+                                                 .a = prev_pixel.a };
+        prev_pixel = decoded_pixels[decoded_count]; // May cause problems
       } else {
+        size_t run = byte & ((1 << 6) - 1);
+        for(size_t i = 0; i < run; ++i) {
+            decoded_pixels[decoded_count] = prev_pixel;
+        }
+        decoded_count += run - 1;
       }
       decoded_count++;
       image_data++;
@@ -94,6 +99,7 @@ main(int argc, char** argv)
     return 1;
   } else if (argc > 2) {
     printf("Too many command line arguments");
+    return 1;
   }
 
   size_t image_len;
