@@ -2,3 +2,4 @@ a.exe
 a.out
 out.ppm
 qoi_test_images/
+render.py
