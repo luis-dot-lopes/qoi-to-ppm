@@ -26,29 +26,36 @@ typedef struct
 } pixel;
 
 pixel*
-decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *image_height)
+decode_qoi(uint8_t* image_data,
+           size_t image_len,
+           size_t* image_width,
+           size_t* image_height)
 {
   pixel seen_pixels[64] = { 0 };
   pixel prev_pixel = { .r = 0, .g = 0, .b = 0, .a = 255 };
-  *image_width = (image_data[4] << 24) + (image_data[5] << 16) + (image_data[6] << 8) + (image_data[7] << 0);
-  *image_height = (image_data[8] << 24) + (image_data[9] << 16) + (image_data[10] << 8) + (image_data[11] << 0);
-  //printf("%c%c%c%c\n", image_data[0], image_data[1], image_data[2], image_data[3]);
-  //printf("%d %d %lld\n", image_width, image_height, image_width * image_height);
-  pixel* decoded_pixels = malloc(sizeof(pixel) * (*image_width) * (*image_height));
+  *image_width = (image_data[4] << 24) + (image_data[5] << 16) +
+                 (image_data[6] << 8) + (image_data[7] << 0);
+  *image_height = (image_data[8] << 24) + (image_data[9] << 16) +
+                  (image_data[10] << 8) + (image_data[11] << 0);
+  // printf("%c%c%c%c\n", image_data[0], image_data[1], image_data[2],
+  // image_data[3]); printf("%d %d %lld\n", image_width, image_height,
+  // image_width * image_height);
+  pixel* decoded_pixels =
+    malloc(sizeof(pixel) * (*image_width) * (*image_height));
   image_data += 14;
   image_len -= 14;
-  if(decoded_pixels == NULL) {
-      printf("Coundn't alloc memory\n");
-      return NULL;
+  if (decoded_pixels == NULL) {
+    printf("Coundn't alloc memory\n");
+    return NULL;
   }
   size_t decoded_count = 0;
   while (decoded_count < ((*image_height) * (*image_width))) {
     uint8_t byte = image_data[0];
     if (byte != 0b11111110 && byte != 0b11111111) {
-      if ((byte & (0b11 << 6)) == 0b00) {
+      if (((byte & (0b11 << 6)) >> 6) == 0b00) {
         decoded_pixels[decoded_count++] = seen_pixels[byte & ((1 << 6) - 1)];
         prev_pixel = decoded_pixels[decoded_count - 1]; // May cause problems
-      } else if ((byte & (0b11 << 6)) == 0b01) {
+      } else if (((byte & (0b11 << 6)) >> 6) == 0b01) {
         int dr = (int)((byte & (0b11 << 4)) >> 4) - 2;
         int dg = (int)((byte & (0b11 << 2)) >> 2) - 2;
         int db = (int)((byte & (0b11 << 0)) >> 0) - 2;
@@ -58,8 +65,10 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
                                    .a = prev_pixel.a };
         decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel; // May cause problems
-        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
-      } else if ((byte & (0b11 << 6)) == 0b10) {
+        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
+                     cur_pixel.a * 11) %
+                    64] = cur_pixel;
+      } else if (((byte & (0b11 << 6)) >> 6) == 0b10) {
         int dg = ((int)(byte & 0b111111)) - 32;
         image_data++;
         image_len--;
@@ -78,17 +87,19 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
 
         decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel; // May cause problems
-        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
-      } else if ((byte & (0b11 << 6)) == 0b11) {
+        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
+                     cur_pixel.a * 11) %
+                    64] = cur_pixel;
+      } else if (((byte & (0b11 << 6)) >> 6) == 0b11) {
         size_t run = (byte & 0b111111) + 1;
-        for(size_t i = 0; i < run; ++i) {
-            decoded_pixels[decoded_count++] = prev_pixel;
+        for (size_t i = 0; i < run; ++i) {
+          decoded_pixels[decoded_count++] = prev_pixel;
         }
       }
       image_data++;
       image_len--;
     } else {
-      if(byte & 1) {
+      if (byte & 1) {
 
         pixel cur_pixel;
 
@@ -117,7 +128,9 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
         cur_pixel.a = byte;
         decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel;
-        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
+        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
+                     cur_pixel.a * 11) %
+                    64] = cur_pixel;
       } else {
         pixel cur_pixel;
 
@@ -138,12 +151,14 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
         byte = image_data[0];
 
         cur_pixel.b = byte;
-        
+
         cur_pixel.a = prev_pixel.a;
 
         decoded_pixels[decoded_count++] = cur_pixel;
         prev_pixel = cur_pixel;
-        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) % 64] = cur_pixel;
+        seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
+                     cur_pixel.a * 11) %
+                    64] = cur_pixel;
       }
     }
   }
@@ -152,13 +167,16 @@ decode_qoi(uint8_t* image_data, size_t image_len, size_t *image_width, size_t *i
   return decoded_pixels;
 }
 
-void 
-write_ppm_to_file(char *file_path, pixel *pixels, size_t image_width, size_t image_height)
+void
+write_ppm_to_file(char* file_path,
+                  pixel* pixels,
+                  size_t image_width,
+                  size_t image_height)
 {
   FILE* file = fopen(file_path, "wb");
   fprintf(file, "P6\n%d %d 255\n", image_width, image_height);
-  for(size_t y = 0; y < image_height; ++y) {
-    for(size_t x = 0; x < image_width; ++x) {
+  for (size_t y = 0; y < image_height; ++y) {
+    for (size_t x = 0; x < image_width; ++x) {
       fwrite(&pixels[y * image_width + x].r, sizeof(uint8_t), 1, file);
       fwrite(&pixels[y * image_width + x].g, sizeof(uint8_t), 1, file);
       fwrite(&pixels[y * image_width + x].b, sizeof(uint8_t), 1, file);
@@ -208,7 +226,8 @@ main(int argc, char** argv)
     return 1;
   }
 
-  pixel* pixels = decode_qoi(image_data, image_len, &image_width, &image_height);
+  pixel* pixels =
+    decode_qoi(image_data, image_len, &image_width, &image_height);
   if (pixels == NULL) {
     return 1;
   }
