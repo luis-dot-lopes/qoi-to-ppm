@@ -131,6 +131,8 @@ decode_qoi(uint8_t* image_data,
         seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
                      cur_pixel.a * 11) %
                     64] = cur_pixel;
+        image_data++;
+        image_len--;
       } else {
         pixel cur_pixel;
 
@@ -159,6 +161,8 @@ decode_qoi(uint8_t* image_data,
         seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
                      cur_pixel.a * 11) %
                     64] = cur_pixel;
+        image_data++;
+        image_len--;
       }
     }
   }
