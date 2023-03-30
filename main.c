@@ -172,6 +172,31 @@ write_ppm_to_file(char* file_path,
   fclose(file);
 }
 
+pixel*
+read_pixels_from_ppm(uint8_t* data, size_t* image_width, size_t* image_height)
+{
+  char header[41];
+  memcpy(header, data, 40);
+  header[40] = '\0';
+  if (sscanf(header, "P6\n%d %d 255\n", image_width, image_height) < 2) {
+    printf("Error while reading ppm data");
+    return NULL;
+  }
+  for (int i = 0; i < 2; ++data)
+    if (*data = '\n')
+      ++i;
+  ++data;
+  pixel* pixels = malloc(sizeof(pixel) * (*image_height) * (*image_width));
+  for (size_t i = 0; i < (*image_height) * (*image_width); i += 3) {
+    pixel cur_pixel;
+    cur_pixel.r = data[i];
+    cur_pixel.g = data[i + 1];
+    cur_pixel.b = data[i + 2];
+    cur_pixel.a = 255;
+  }
+  return pixels;
+}
+
 uint8_t*
 load_file(char* file_path, size_t* file_len)
 {
