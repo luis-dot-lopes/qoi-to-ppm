@@ -154,6 +154,45 @@ decode_qoi(uint8_t* image_data,
   return decoded_pixels;
 }
 
+uint8_t*
+encode_qoi(pixel* image_pixels,
+           size_t pixels_len,
+           size_t image_width,
+           size_t image_height,
+           size_t* data_len)
+{
+  pixel seen_pixels = { 0 };
+  pixel prev_pixel;
+  uint8_t* image_data = malloc(sizeof(pixel) * pixels_len);
+  size_t bytes_written = 0;
+  qoi_header header = { .magic = { 'q', 'o', 'i', 'f' },
+                        .channels = 3,
+                        .colorspace = 0,
+                        .width = image_width,
+                        .height = image_height };
+  memcpy(image_data, header.magic, 4);
+  bytes_written += 4;
+
+  image_data[bytes_written++] = (image_width >> 24) & 0b11111111;
+  image_data[bytes_written++] = (image_width >> 16) & 0b11111111;
+  image_data[bytes_written++] = (image_width >> 8) & 0b11111111;
+  image_data[bytes_written++] = (image_width >> 0) & 0b11111111;
+
+  image_data[bytes_written++] = (image_height >> 24) & 0b11111111;
+  image_data[bytes_written++] = (image_height >> 16) & 0b11111111;
+  image_data[bytes_written++] = (image_height >> 8) & 0b11111111;
+  image_data[bytes_written++] = (image_height >> 0) & 0b11111111;
+
+  image_data[bytes_written++] = header.channels;
+  image_data[bytes_written++] = header.colorspace;
+
+  for (size_t i = 0; i < pixels_len; ++i) {
+  }
+
+  *data_len = bytes_written;
+  return image_data;
+}
+
 void
 write_ppm_to_file(char* file_path,
                   pixel* pixels,
