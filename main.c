@@ -154,6 +154,12 @@ decode_qoi(uint8_t* image_data,
   return decoded_pixels;
 }
 
+int
+compare_pixels(pixel p1, pixel p2)
+{
+  return p1.r == p2.r && p1.g == p2.g && p1.b == p2.b && p1.a == p2.a;
+}
+
 uint8_t*
 encode_qoi(pixel* image_pixels,
            size_t pixels_len,
@@ -161,7 +167,7 @@ encode_qoi(pixel* image_pixels,
            size_t image_height,
            size_t* data_len)
 {
-  pixel seen_pixels = { 0 };
+  pixel seen_pixels[64] = { 0 };
   pixel prev_pixel;
   uint8_t* image_data = malloc(sizeof(pixel) * pixels_len);
   size_t bytes_written = 0;
@@ -186,7 +192,51 @@ encode_qoi(pixel* image_pixels,
   image_data[bytes_written++] = header.channels;
   image_data[bytes_written++] = header.colorspace;
 
+  uint8_t run;
+
   for (size_t i = 0; i < pixels_len; ++i) {
+    pixel cur_pixel = image_pixels[i];
+    uint8_t hash_index =
+      (cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 + cur_pixel.a * 11) %
+      64;
+    pixel hash_pixel = seen_pixels[hash_index];
+    int dr = cur_pixel.r - prev_pixel.r;
+    int dg = cur_pixel.g - prev_pixel.g;
+    int db = cur_pixel.b - prev_pixel.b;
+    int dr_dg = dr - dg;
+    int db_dg = db - dg;
+
+    if (dr == 0 && dg == 0 && db == 0 && run < 63) {
+      run++;
+      continue;
+    }
+    seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
+                 cur_pixel.a * 11) %
+                64] = cur_pixel;
+    if (run > 0) {
+      uint8_t chunk = 0b11000000 | (run - 1);
+      image_data[bytes_written++] = chunk;
+    }
+    if (compare_pixels(cur_pixel, hash_pixel)) {
+      uint8_t chunk = 0b00 | hash_index;
+      image_data[bytes_written++] = chunk;
+    } else if (-2 <= dr && dr <= 1 && -2 <= dg && dg <= 1 && -2 <= db &&
+               db <= 1) {
+      uint8_t chunk =
+        0b01 | ((dr + 2) << 4) | ((dg + 2) << 2) | ((db + 2) << 0);
+      image_data[bytes_written++] = chunk;
+    } else if (-32 <= dg && dg <= 31 && -8 <= dr_dg && dr_dg <= 7 &&
+               -8 <= db_dg && db_dg <= 7) {
+      uint8_t chunk1 = 0b10 | (dg + 32);
+      uint8_t chunk2 = ((dr_dg + 8) << 4) | (db_dg + 8);
+      image_data[bytes_written++] = chunk1;
+      image_data[bytes_written++] = chunk2;
+    } else {
+      image_data[bytes_written++] = 0b11111111;
+      image_data[bytes_written++] = cur_pixel.r;
+      image_data[bytes_written++] = cur_pixel.g;
+      image_data[bytes_written++] = cur_pixel.b;
+    }
   }
 
   *data_len = bytes_written;
