@@ -261,6 +261,14 @@ write_ppm_to_file(char* file_path,
   fclose(file);
 }
 
+void
+write_bytes_to_file(char* file_path, uint8_t* bytes, size_t len_bytes)
+{
+  FILE* file = fopen(file_path, "wb");
+  fwrite(bytes, sizeof(uint8_t) * len_bytes, 1, file);
+  fclose(file);
+}
+
 pixel*
 read_pixels_from_ppm(uint8_t* data, size_t* image_width, size_t* image_height)
 {
