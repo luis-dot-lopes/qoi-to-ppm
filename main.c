@@ -343,11 +343,11 @@ main(int argc, char** argv)
     pixel* pixels =
       read_pixels_from_ppm(image_data, &image_width, &image_height);
     size_t bytes_len;
-    uint8_t bytes = encode_qoi(pixels,
-                               image_width * image_height,
-                               image_width,
-                               image_height,
-                               &bytes_len);
+    uint8_t* bytes = encode_qoi(pixels,
+                                image_width * image_height,
+                                image_width,
+                                image_height,
+                                &bytes_len);
 
     write_bytes_to_file("out.qoi", bytes, bytes_len);
 

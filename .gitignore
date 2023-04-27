@@ -1,5 +1,6 @@
 a.exe
 a.out
 out.ppm
+out.qoi
 qoi_test_images/
 render.py
