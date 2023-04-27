@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef _WIN32
 
@@ -316,11 +317,19 @@ load_file(char* file_path, size_t* file_len)
 int
 main(int argc, char** argv)
 {
+  int convert_to_qoi = 0;
 
   if (argc < 2) {
     printf("No input files\n");
     return 1;
   } else if (argc > 2) {
+    if (strcmp(argv[2], "-qoi") == 0) {
+      convert_to_qoi = 1;
+    } else {
+      printf("Invalid flag\n");
+      return 1;
+    }
+  } else if (argc > 3) {
     printf("Too many command line arguments\n");
     return 1;
   }
@@ -330,20 +339,36 @@ main(int argc, char** argv)
 
   printf("image_len: %d\n", image_len);
 
-  if (image_len < sizeof(qoi_header)) {
-    printf("Invalid image\n");
-    return 1;
+  if (convert_to_qoi) {
+    pixel* pixels =
+      read_pixels_from_ppm(image_data, &image_width, &image_height);
+    size_t bytes_len;
+    uint8_t bytes = encode_qoi(pixels,
+                               image_width * image_height,
+                               image_width,
+                               image_height,
+                               &bytes_len);
+
+    write_bytes_to_file("out.qoi", bytes, bytes_len);
+
+    free(bytes);
+    free(pixels);
+  } else {
+    if (image_len < sizeof(qoi_header)) {
+      printf("Invalid image\n");
+      return 1;
+    }
+
+    pixel* pixels =
+      decode_qoi(image_data, image_len, &image_width, &image_height);
+    if (pixels == NULL) {
+      return 1;
+    }
+
+    write_ppm_to_file("out.ppm", pixels, image_width, image_height);
+    free(pixels);
   }
 
-  pixel* pixels =
-    decode_qoi(image_data, image_len, &image_width, &image_height);
-  if (pixels == NULL) {
-    return 1;
-  }
-
-  write_ppm_to_file("out.ppm", pixels, image_width, image_height);
-
-  free(pixels);
   free(image_data);
 
   return 0;
