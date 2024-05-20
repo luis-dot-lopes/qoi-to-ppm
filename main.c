@@ -169,7 +169,7 @@ encode_qoi(pixel* image_pixels,
            size_t* data_len)
 {
   pixel seen_pixels[64] = { 0 };
-  pixel prev_pixel;
+  pixel prev_pixel = { 0 };
   uint8_t* image_data = malloc(sizeof(pixel) * pixels_len);
   size_t bytes_written = 0;
   qoi_header header = { .magic = { 'q', 'o', 'i', 'f' },
@@ -193,7 +193,7 @@ encode_qoi(pixel* image_pixels,
   image_data[bytes_written++] = header.channels;
   image_data[bytes_written++] = header.colorspace;
 
-  uint8_t run;
+  uint8_t run = 0;
 
   for (size_t i = 0; i < pixels_len; ++i) {
     pixel cur_pixel = image_pixels[i];
@@ -207,38 +207,53 @@ encode_qoi(pixel* image_pixels,
     int dr_dg = dr - dg;
     int db_dg = db - dg;
 
-    if (dr == 0 && dg == 0 && db == 0 && run < 63) {
+    if (dr == 0 && dg == 0 && db == 0 && run < 62) {
       run++;
       continue;
     }
-    seen_pixels[(cur_pixel.r * 3 + cur_pixel.g * 5 + cur_pixel.b * 7 +
-                 cur_pixel.a * 11) %
-                64] = cur_pixel;
+
     if (run > 0) {
       uint8_t chunk = 0b11000000 | (run - 1);
       image_data[bytes_written++] = chunk;
+      run = 0;
+      --i;
+      continue;
     }
-    if (compare_pixels(cur_pixel, hash_pixel)) {
-      uint8_t chunk = 0b00 | hash_index;
+
+    if (compare_pixels(cur_pixel, hash_pixel) &&
+        !compare_pixels(hash_pixel, prev_pixel)) {
+      uint8_t chunk = 0b00000000 | hash_index;
       image_data[bytes_written++] = chunk;
     } else if (-2 <= dr && dr <= 1 && -2 <= dg && dg <= 1 && -2 <= db &&
                db <= 1) {
       uint8_t chunk =
-        0b01 | ((dr + 2) << 4) | ((dg + 2) << 2) | ((db + 2) << 0);
+        0b01000000 | ((dr + 2) << 4) | ((dg + 2) << 2) | ((db + 2) << 0);
       image_data[bytes_written++] = chunk;
     } else if (-32 <= dg && dg <= 31 && -8 <= dr_dg && dr_dg <= 7 &&
                -8 <= db_dg && db_dg <= 7) {
-      uint8_t chunk1 = 0b10 | (dg + 32);
+      uint8_t chunk1 = 0b10000000 | (dg + 32);
       uint8_t chunk2 = ((dr_dg + 8) << 4) | (db_dg + 8);
       image_data[bytes_written++] = chunk1;
       image_data[bytes_written++] = chunk2;
     } else {
-      image_data[bytes_written++] = 0b11111111;
+      image_data[bytes_written++] = 0b11111110;
       image_data[bytes_written++] = cur_pixel.r;
       image_data[bytes_written++] = cur_pixel.g;
       image_data[bytes_written++] = cur_pixel.b;
     }
+    prev_pixel = cur_pixel;
+    seen_pixels[hash_index] = cur_pixel;
   }
+  if (run > 0) {
+    uint8_t chunk = 0b11000000 | (run - 1);
+    image_data[bytes_written++] = chunk;
+    run = 0;
+  }
+
+  for (size_t i = 0; i < 7; ++i) {
+    image_data[bytes_written++] = 0;
+  }
+  image_data[bytes_written++] = 1;
 
   *data_len = bytes_written;
   return image_data;
@@ -251,7 +266,7 @@ write_ppm_to_file(char* file_path,
                   size_t image_height)
 {
   FILE* file = fopen(file_path, "wb");
-  fprintf(file, "P6\n%d %d 255\n", image_width, image_height);
+  fprintf(file, "P6\n%lld %lld 255\n", image_width, image_height);
   for (size_t y = 0; y < image_height; ++y) {
     for (size_t x = 0; x < image_width; ++x) {
       fwrite(&pixels[y * image_width + x].r, sizeof(uint8_t), 1, file);
@@ -276,21 +291,21 @@ read_pixels_from_ppm(uint8_t* data, size_t* image_width, size_t* image_height)
   char header[41];
   memcpy(header, data, 40);
   header[40] = '\0';
-  if (sscanf(header, "P6\n%d %d 255\n", image_width, image_height) < 2) {
+  if (sscanf(header, "P6\n%lld %lld 255\n", image_width, image_height) < 2) {
     printf("Error while reading ppm data");
     return NULL;
   }
-  for (int i = 0; i < 2; ++data)
-    if (*data = '\n')
+  int skipped = 0;
+  for (int i = 0; i < 2; ++data, ++skipped)
+    if (*data == '\n')
       ++i;
-  ++data;
+  printf("Skipped: %d\n", skipped);
   pixel* pixels = malloc(sizeof(pixel) * (*image_height) * (*image_width));
-  for (size_t i = 0; i < (*image_height) * (*image_width); i += 3) {
-    pixel cur_pixel;
-    cur_pixel.r = data[i];
-    cur_pixel.g = data[i + 1];
-    cur_pixel.b = data[i + 2];
-    cur_pixel.a = 255;
+  for (size_t i = 0; i < (*image_height) * (*image_width); ++i) {
+    pixels[i].r = data[3 * i];
+    pixels[i].g = data[3 * i + 1];
+    pixels[i].b = data[3 * i + 2];
+    pixels[i].a = 255;
   }
   return pixels;
 }
@@ -299,14 +314,9 @@ uint8_t*
 load_file(char* file_path, size_t* file_len)
 {
   FILE* file = fopen(file_path, "rb");
-#ifdef _WIN32
-  size_t size = GetFileSize(file, NULL);
-#endif
-#ifdef __linux__
   fseek(file, 0, SEEK_END);
   size_t size = ftell(file);
   rewind(file);
-#endif
   uint8_t* file_content = malloc(size);
   fread(file_content, size, 1, file);
   *file_len = size;
@@ -362,6 +372,7 @@ main(int argc, char** argv)
     pixel* pixels =
       decode_qoi(image_data, image_len, &image_width, &image_height);
     if (pixels == NULL) {
+      printf("Failed: pixels are NULL\n");
       return 1;
     }
 

@@ -17,3 +17,11 @@ Usage:
 ```
 
 The output is written to out.ppm
+
+You can also convert PPM images to QOI:
+
+```
+./a.out [filename] -qoi
+```
+
+The output is written to out.qoi
